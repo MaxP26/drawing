@@ -11,12 +11,10 @@ namespace Project1
     internal static class Calculator
     {
         const string dgt = @"[0-9]";
-        const string usnum = $"({dgt}+[.,]?{dgt}*)";
-        const string snum = $"(\\(-{usnum}\\)|-?{usnum})";
-        const string prp = $"(\\(-{usnum}?x\\)|-?{usnum}?x)";
-        const string opd = $"({snum}|{prp})";
-        const string opr = $" ?[+*/\\-^] ?";
-        const string formulaPattern = $"^{opd}({opr}{opd})*$";
+        const string usnum = $"{dgt}+,?{dgt}*";
+        const string opd = $"({usnum}x?|x|#{dgt}+)";
+        const string opr = $"[+*/\\-^]";
+        const string formulaPattern = $"-?{opd}({opr}{opd})*";
         static Regex reg = new Regex(formulaPattern, RegexOptions.Compiled);
         static Dictionary<int, string> opPriority = new()
         {
@@ -34,23 +32,46 @@ namespace Project1
         };
         public static bool isValid(string form)
         {
-            return reg.IsMatch(form);
+            form = form.Replace(" ", "");
+            form = form.Replace(".", ",");
+            if (form.Contains("#"))return false;
+            if (form.Count((a) => a == '(') != form.Count((a) => a == ')')) return false;
+            else
+            {
+                Regex reg = new Regex(@"\("+formulaPattern+@"\)");
+                 while (form.Contains("("))
+                {
+                    if(form.IndexOf('(') >form.IndexOf(')')) return false;
+                    if(!reg.IsMatch(form))return false;
+                    form=reg.Replace(form, "x");
+                }
+                return Regex.IsMatch(form,"^"+ formulaPattern+"$");
+            }
         }
         static ParameterExpression X { get; } = Expression.Parameter(typeof(double), "x");
         public static T GetDelegate<T>(string func) where T : Delegate
         {
-            return Expression.Lambda<T>(GetExpression(func), new ParameterExpression[] { X }).Compile();
-        }
-        static Expression GetExpression(string func)
-        {
             func = func.Replace(" ", "");
-            func = func.Replace("(", "");
-            func = func.Replace(")", "");
             func = func.Replace(".", ",");
-            func = Regex.Replace(func, @"([^^\-+/*])-",@"$1~");
-            if (Regex.IsMatch(func, $"^{opd}$"))
+            return Expression.Lambda<T>(GetExpression(func,new()), new ParameterExpression[] { X }).Compile();
+        }
+        static Expression GetExpression(string func,List<Expression> expressions)
+        {
+            if (func.Contains("("))
             {
-                if (Regex.IsMatch(func, $"^{snum}$"))
+                while (func.Contains("("))
+                {
+                    var match = Regex.Match(func, $"\\(({formulaPattern})\\)");
+                    expressions.Add(GetExpression(match.Groups[1].Value,expressions));
+                    func=func.Replace(match.Value, "#" + (expressions.Count - 1));
+                }
+            }
+            func = Regex.Replace(func, @"([^(^\-+/*])-",@"$1~");
+            if (Regex.IsMatch(func, $"^-?{opd}$"))
+            {
+                if ((Regex.IsMatch(func, "#[0-9]+")))
+                    return expressions[int.Parse(func.Substring(1))];
+                if (Regex.IsMatch(func, $"^-?{usnum}$"))
                     return Expression.Constant(double.Parse(func));
                 else
                 {
@@ -68,7 +89,7 @@ namespace Project1
                     {
                         if (func.Contains(c))
                             return func.Split(c)
-                                .Select(func => GetExpression(func))
+                                .Select(func => GetExpression(func,expressions))
                                 .Aggregate(Expression.Empty() as Expression,
                                 (a, b) =>
                                 {

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -49,28 +50,38 @@ namespace Project1
                     FormTextBox.Focus();
                     return;
                 }
+                var one = 20;
                 var calc = Calculator.GetDelegate<Func<double, double>>(FormTextBox.Text);
                 double w = DrawAreaCanvas.ActualWidth, h = DrawAreaCanvas.ActualHeight;
                 GeometryGroup geometryGroup = new GeometryGroup(), xy = new();
                 xy.Children.Add(new LineGeometry(new Point(-w / 2, 0), new Point(w / 2, 0)));
                 xy.Children.Add(new LineGeometry(new Point(0, -h / 2), new Point(0, h / 2)));
                 double y;
+                for(int i = 0; i < w / 2; i += one)
+                {
+                    if (i < h / 2)
+                    {
+                        xy.Children.Add(new LineGeometry(new Point(-3, i), new Point(3, i)));
+                        xy.Children.Add(new LineGeometry(new Point(-3, -i), new Point(3, -i)));
+                    }
+                    xy.Children.Add(new LineGeometry(new Point(i, -3), new Point(i, 3)));
+                    xy.Children.Add(new LineGeometry(new Point(-i, -3), new Point(-i, 3)));
+                }
                 for (double x = -w / 2; x < w / 2; x += 0.1)
                 {
-                    y = calc(x/10)*10;
+                    y = calc(x/one)*one;
                     if (y > -h / 2 && y < h / 2)
                         geometryGroup.Children.Add(new RectangleGeometry(new Rect(x, y, 1, 1)));
                 }
                 GeometryDrawing geometryDrawing = new GeometryDrawing(),xydr=new();
                 xydr.Geometry = xy;
-                xydr.Pen = new Pen(new SolidColorBrush(Colors.Gray), 2);
-                xydr.Pen.DashStyle=DashStyles.Dash;
+                xydr.Pen = new Pen(new SolidColorBrush(Colors.Gray), 1);
                 geometryDrawing.Geometry = geometryGroup;
                 geometryDrawing.Brush = new SolidColorBrush(Colors.Black);
                 geometryDrawing.Pen = new Pen(new SolidColorBrush(Colors.Black), 1);
                 DrawingGroup draw = new DrawingGroup();
-                draw.Children.Add(geometryDrawing);
                 draw.Children.Add(xydr);
+                draw.Children.Add(geometryDrawing);
                 DrawingImage drawingImage=new DrawingImage(draw);
                 drawingImage.Freeze();
                 FuncImage.Source = drawingImage;
